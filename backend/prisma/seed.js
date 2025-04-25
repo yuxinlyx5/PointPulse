@@ -7,7 +7,6 @@ const { faker } = require('@faker-js/faker');
 
 const prisma = new PrismaClient();
 
-// Run the seed function
 seed().catch(e => {
     console.error(e);
     process.exit(1);
@@ -68,7 +67,8 @@ async function clearData() {
 }
 
 async function createUsers() {
-    const hashedPassword = await bcrypt.hash('Lvxuanyi2003!', 10);
+    const defaultPassword = await bcrypt.hash('123', 10);
+    const manager1Password = await bcrypt.hash('20961', 10);
 
     // Create superuser
     const superuser1 = await prisma.user.create({
@@ -76,7 +76,7 @@ async function createUsers() {
             utorid: 'lyuxuany',
             name: 'Xuanyi Lyu',
             email: 'xuanyi.lyu@mail.utoronto.ca',
-            password: hashedPassword,
+            password: defaultPassword,
             role: 'superuser',
             points: 5000,
             verified: true,
@@ -91,7 +91,7 @@ async function createUsers() {
             utorid: 'liyuxin1',
             name: 'Yuxin Li',
             email: 'lyx.li@mail.utoronto.ca',
-            password: hashedPassword,
+            password: defaultPassword,
             role: 'superuser',
             points: 5000,
             verified: true,
@@ -106,7 +106,7 @@ async function createUsers() {
             utorid: 'zhaokiko',
             name: 'Kiko Zhao',
             email: 'kiko.zhao@mail.utoronto.ca',
-            password: hashedPassword,
+            password: defaultPassword,
             role: 'superuser',
             points: 5000,
             verified: true,
@@ -123,7 +123,7 @@ async function createUsers() {
                 utorid: `manager${i}`,
                 name: `Manager User ${i}`,
                 email: `manager.user${i}@mail.utoronto.ca`,
-                password: hashedPassword,
+                password: manager1Password, // All managers get the special password
                 role: 'manager',
                 points: 3000 + (i * 500),
                 verified: true,
@@ -142,7 +142,7 @@ async function createUsers() {
                 utorid: `cashier${i}`,
                 name: `Cashier User ${i}`,
                 email: `cashier.user${i}@mail.utoronto.ca`,
-                password: hashedPassword,
+                password: defaultPassword,
                 role: 'cashier',
                 points: 2000 + (i * 200),
                 verified: true,
@@ -157,12 +157,15 @@ async function createUsers() {
     const regularUsers = [];
 
     for (let i = 1; i <= 45; i++) {
+        // Format utorid to be exactly 8 characters
+        const utorid = i < 10 ? `regular${i}` : `regula${i}`;
+        
         const user = await prisma.user.create({
             data: {
-                utorid: `user${String(i).padStart(4, '0')}`, // Ensure 8-character utorid
+                utorid, // Ensure 8-character utorid
                 name: `Regular User ${i}`,
                 email: `regular.user${i}@mail.utoronto.ca`,
-                password: hashedPassword,
+                password: defaultPassword,
                 role: 'regular',
                 points: Math.floor(500 + Math.random() * 5000), // Random points between 500 and 5500
                 verified: i <= 40, // First 40 users are verified
@@ -229,13 +232,22 @@ async function createEvents(users) {
         const eventDuration = 1 + Math.floor(Math.random() * 2); // 1-3 days
         const name = `${eventNames[i % eventNames.length]} ${Math.floor(i / eventNames.length) + 1}`;
         
+        // Add random hours to start and end times
+        const startHour = Math.floor(Math.random() * 12) + 9; // Random hour between 9 AM and 8 PM
+        const startTime = new Date(now.getTime() + daysInFuture * 24 * 60 * 60 * 1000);
+        startTime.setHours(startHour, 0, 0, 0); // Set specific hour, reset minutes/seconds
+        
+        const eventLengthHours = Math.floor(Math.random() * 4) + 2; // 2-5 hours for event length
+        const endTime = new Date(now.getTime() + (daysInFuture + eventDuration) * 24 * 60 * 60 * 1000);
+        endTime.setHours(startHour + eventLengthHours, 0, 0, 0); // End time is start time + event length
+        
         const upcomingEvent = await prisma.event.create({
             data: {
                 name,
                 description: `Join us for ${name}, where students can engage with industry professionals and academic experts.`,
                 location: eventLocations[i % eventLocations.length],
-                startTime: new Date(now.getTime() + daysInFuture * 24 * 60 * 60 * 1000),
-                endTime: new Date(now.getTime() + (daysInFuture + eventDuration) * 24 * 60 * 60 * 1000),
+                startTime,
+                endTime,
                 capacity: 50 + i * 10,
                 pointsRemain: 2000 + i * 500,
                 pointsAwarded: 0,
@@ -265,13 +277,22 @@ async function createEvents(users) {
         const pointsAwarded = 500 + i * 200;
         const totalPoints = 2000 + i * 500;
         
+        // Add random hours to start and end times
+        const startHour = Math.floor(Math.random() * 12) + 9; // Random hour between 9 AM and 8 PM
+        const startTime = new Date(now.getTime() - daysInPast * 24 * 60 * 60 * 1000);
+        startTime.setHours(startHour, 0, 0, 0); // Set specific hour, reset minutes/seconds
+        
+        const eventLengthHours = Math.floor(Math.random() * 4) + 2; // 2-5 hours for event length
+        const endTime = new Date(now.getTime() - (daysInPast - eventDuration) * 24 * 60 * 60 * 1000);
+        endTime.setHours(startHour + eventLengthHours, 0, 0, 0); // End time is start time + event length
+        
         const pastEvent = await prisma.event.create({
             data: {
                 name,
                 description: `This event featured presentations, networking, and opportunities for professional development.`,
                 location: eventLocations[(i + 5) % eventLocations.length],
-                startTime: new Date(now.getTime() - daysInPast * 24 * 60 * 60 * 1000),
-                endTime: new Date(now.getTime() - (daysInPast - eventDuration) * 24 * 60 * 60 * 1000),
+                startTime,
+                endTime,
                 capacity: 50 + i * 10,
                 pointsRemain: totalPoints - pointsAwarded,
                 pointsAwarded,
@@ -299,13 +320,22 @@ async function createEvents(users) {
         const eventDuration = 1 + Math.floor(Math.random() * 2); // 1-3 days
         const name = `Upcoming ${eventNames[(i + 10) % eventNames.length]} ${Math.floor(i / eventNames.length) + 1}`;
         
+        // Add random hours to start and end times
+        const startHour = Math.floor(Math.random() * 12) + 9; // Random hour between 9 AM and 8 PM
+        const startTime = new Date(now.getTime() + daysInFuture * 24 * 60 * 60 * 1000);
+        startTime.setHours(startHour, 0, 0, 0); // Set specific hour, reset minutes/seconds
+        
+        const eventLengthHours = Math.floor(Math.random() * 4) + 2; // 2-5 hours for event length
+        const endTime = new Date(now.getTime() + (daysInFuture + eventDuration) * 24 * 60 * 60 * 1000);
+        endTime.setHours(startHour + eventLengthHours, 0, 0, 0); // End time is start time + event length
+        
         const unpublishedEvent = await prisma.event.create({
             data: {
                 name,
                 description: `Planning is underway for this exciting event. Stay tuned for more details.`,
                 location: eventLocations[(i + 2) % eventLocations.length],
-                startTime: new Date(now.getTime() + daysInFuture * 24 * 60 * 60 * 1000),
-                endTime: new Date(now.getTime() + (daysInFuture + eventDuration) * 24 * 60 * 60 * 1000),
+                startTime,
+                endTime,
                 capacity: 100 + i * 20,
                 pointsRemain: 5000 + i * 1000,
                 pointsAwarded: 0,
